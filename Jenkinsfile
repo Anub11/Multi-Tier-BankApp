@@ -95,7 +95,8 @@ pipeline {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
-                        sh 'docker build -t anub11/bankapp:${params.IMAGE_TAG} .'
+                        sh "echo ${params.IMAGE_TAG}"
+                        sh "docker build -t anub11/bankapp:${params.IMAGE_TAG} ."
                     }
                 }
             }
@@ -104,7 +105,7 @@ pipeline {
         stage('Docker image scan') {
             when { expression { params.PARAM_ENV == 'dev' } }
             steps {
-                sh 'trivy image --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-image-report.json anub11/bankapp:${params.IMAGE_TAG}'
+                sh "trivy image --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-image-report.json anub11/bankapp:${params.IMAGE_TAG}"
             }
         }
         
@@ -113,7 +114,7 @@ pipeline {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
-                        sh 'docker push anub11/bankapp:${params.IMAGE_TAG}'
+                        sh "docker push anub11/bankapp:${params.IMAGE_TAG}"
                     }
                 }
             }
