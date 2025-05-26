@@ -122,7 +122,9 @@ pipeline {
         
         stage('Deploy to EKS') {
             steps {
-                sh 'ls -l'                
+                sh 'ls -l'   
+                sh "sed -i 's|image:.*|image: anub11/bankapp:${params.IMAGE_TAG}|' ds.yml"
+                sh "echo deployed!!"
             }
         }
         
