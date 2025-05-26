@@ -6,7 +6,7 @@ pipeline {
     }
 
      parameters {
-        choice(name: 'PARAM_ENV', choices: ['dev', 'qa'], description: 'Select the environment to deploy')
+        
         string(name: 'IMAGE_TAG', defaultValue: '', description: 'Docker image tag to deploy')
     }
     
