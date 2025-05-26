@@ -7,6 +7,7 @@ pipeline {
 
      parameters {
         choice(name: 'PARAM_ENV', choices: ['dev', 'qa'], description: 'Select the environment to deploy')
+        string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Docker image tag to deploy')
     }
     
     environment {
@@ -94,7 +95,7 @@ pipeline {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
-                        sh 'docker build -t anub11/bankapp:v1 .'
+                        sh 'docker build -t anub11/bankapp:${params.IMAGE_TAG} .'
                     }
                 }
             }
@@ -103,7 +104,7 @@ pipeline {
         stage('Docker image scan') {
             when { expression { params.PARAM_ENV == 'dev' } }
             steps {
-                sh 'trivy image --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-image-report.json anub11/bankapp:v1'
+                sh 'trivy image --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-image-report.json anub11/bankapp:${params.IMAGE_TAG}'
             }
         }
         
@@ -112,7 +113,7 @@ pipeline {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
-                        sh 'docker push anub11/bankapp:v1'
+                        sh 'docker push anub11/bankapp:${params.IMAGE_TAG}'
                     }
                 }
             }
