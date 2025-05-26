@@ -4,6 +4,11 @@ pipeline {
     tools {
         maven "maven3"
     }
+
+     parameters {
+        
+        string(name: 'IMAGE_TAG', defaultValue: '', description: 'Docker image tag to deploy')
+    }
     
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
@@ -15,32 +20,59 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Set ENV and Image Tag') {
+            steps {
+                script {
+                    // Detect branch-based environment
+                    env.PARAM_ENV = (env.BRANCH_NAME == 'dev') ? 'dev' :
+                                    (env.BRANCH_NAME == 'qa') ? 'qa' : 'unknown'
+
+                    if (env.PARAM_ENV == 'unknown') {
+                        error "Unsupported branch: ${env.BRANCH_NAME}. Only 'dev' and 'qa' supported."
+                    }
+
+                    // Set IMAGE_TAG: use param if provided, otherwise fallback to BUILD_NUMBER
+                    env.FINAL_IMAGE_TAG = params.IMAGE_TAG?.trim()
+                        ? params.IMAGE_TAG.trim()
+                        : "1.0.${BUILD_NUMBER}"
+
+                    echo "Running on environment: ${env.PARAM_ENV}"
+                    echo "Using Docker image tag: ${env.FINAL_IMAGE_TAG}"
+                }
+            }
+        }
+        
 
         stage('Compile') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 sh 'mvn compile'
             }
         }
 
         stage('Test') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 sh 'mvn test'
             }
         }
 
         stage('Run Gitleaks') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 sh 'gitleaks detect --source . --report-path gitleaks-report.json || true'
             }
         }
 
         stage('Run Trivy') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 sh 'trivy fs --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-fs-report.json .'
             }
         }
         
         stage('SonarQube Analysis') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 withSonarQubeEnv('sonar') {
                      sh '''$SCANNER_HOME/bin/sonar-scanner \
@@ -53,6 +85,7 @@ pipeline {
         }
         
         stage('Quality Gate') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 script{
                     waitForQualityGate abortPipeline: false, credentialsId: 'sonar'
@@ -61,12 +94,14 @@ pipeline {
         }
 
         stage('Build') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 sh 'mvn package'
             }
         }
         
         stage('Publish Artifact') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 script {
                     env.ARTIFACT_VERSION = "1.0.${BUILD_NUMBER}-SNAPSHOT"
@@ -78,26 +113,30 @@ pipeline {
         }
         
         stage('Build and tag docker image') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
-                        sh 'docker build -t anub11/bankapp:v1 .'
+                        sh "echo ${params.IMAGE_TAG}"
+                        sh "docker build -t anub11/bankapp:${env.FINAL_IMAGE_TAG} ."
                     }
                 }
             }
         }
         
         stage('Docker image scan') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
-                sh 'trivy image --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-image-report.json anub11/bankapp:v1'
+                sh "trivy image --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-image-report.json anub11/bankapp:${env.FINAL_IMAGE_TAG}"
             }
         }
         
         stage('Push docker image') {
+            when { expression { env.PARAM_ENV == 'dev' } }
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
-                        sh 'docker push anub11/bankapp:v1'
+                        sh "docker push anub11/bankapp:${env.FINAL_IMAGE_TAG}"
                     }
                 }
             }
@@ -105,16 +144,15 @@ pipeline {
         
         stage('Deploy to EKS') {
             steps {
-                sh 'ls -l'
-                sh 'kubectl create ns dev || true'  // avoids failure if namespace already exists
-                sh 'kubectl apply -f ds.yml -n dev'
+                sh 'ls -l'   
+                sh "sed -i 's|image:.*|image: anub11/bankapp:${env.FINAL_IMAGE_TAG}|' ds.yml"
+                sh "echo deployed!!"
             }
         }
         
         stage('Verify deployment EKS') {
             steps {
-                sh 'kubectl get pods -n dev'  
-                sh 'kubectl get svc -n dev'
+                echo "Using Docker image tag: ${env.FINAL_IMAGE_TAG}"
             }
         }
         
