@@ -4,6 +4,10 @@ pipeline {
     tools {
         maven "maven3"
     }
+
+     parameters {
+        choice(name: 'PARAM_ENV', choices: ['dev', 'qa'], description: 'Select the environment to deploy')
+    }
     
     environment {
         SCANNER_HOME = tool 'sonar-scanner'
@@ -17,30 +21,35 @@ pipeline {
         }
 
         stage('Compile') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 sh 'mvn compile'
             }
         }
 
         stage('Test') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 sh 'mvn test'
             }
         }
 
         stage('Run Gitleaks') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 sh 'gitleaks detect --source . --report-path gitleaks-report.json || true'
             }
         }
 
         stage('Run Trivy') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 sh 'trivy fs --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-fs-report.json .'
             }
         }
         
         stage('SonarQube Analysis') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 withSonarQubeEnv('sonar') {
                      sh '''$SCANNER_HOME/bin/sonar-scanner \
@@ -53,6 +62,7 @@ pipeline {
         }
         
         stage('Quality Gate') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 script{
                     waitForQualityGate abortPipeline: false, credentialsId: 'sonar'
@@ -61,6 +71,7 @@ pipeline {
         }
         
         stage('Publish Artifact') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 script {
                     env.ARTIFACT_VERSION = "1.0.${BUILD_NUMBER}-SNAPSHOT"
@@ -72,6 +83,7 @@ pipeline {
         }
         
         stage('Build and tag docker image') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
@@ -82,12 +94,14 @@ pipeline {
         }
         
         stage('Docker image scan') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 sh 'trivy image --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-image-report.json anub11/bankapp:v1'
             }
         }
         
         stage('Push docker image') {
+            when { expression { params.PARAM_ENV == 'dev' } }
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
