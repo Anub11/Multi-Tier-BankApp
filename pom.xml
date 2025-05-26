@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.example</groupId>
 	<artifactId>bankapp</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<name>bankapp</name>
 	<description>Banking Web Application</description>
 	<url/>
@@ -112,11 +112,11 @@
 		 <distributionManagement>
         <repository>
             <id>maven-releases</id>
-            <url>http://3.111.196.101:8081/repository/maven-releases/</url>
+            <url>http://13.201.49.47:8081/repository/maven-releases/</url>
         </repository>
         <snapshotRepository>
             <id>maven-snapshots</id>
-            <url>http://3.111.196.101:8081/repository/maven-snapshots/</url>
+            <url>http://13.201.49.47:8081/repository/maven-snapshots/</url>
         </snapshotRepository>
 
 		 </distributionManagement>
