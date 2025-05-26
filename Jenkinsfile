@@ -69,6 +69,13 @@ pipeline {
                 }
             }
         }
+
+        stage('Build') {
+            when { expression { params.PARAM_ENV == 'dev' } }
+            steps {
+                sh 'mvn package'
+            }
+        }
         
         stage('Publish Artifact') {
             when { expression { params.PARAM_ENV == 'dev' } }
