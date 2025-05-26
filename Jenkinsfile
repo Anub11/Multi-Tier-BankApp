@@ -7,7 +7,7 @@ pipeline {
 
      parameters {
         choice(name: 'PARAM_ENV', choices: ['dev', 'qa'], description: 'Select the environment to deploy')
-        string(name: 'IMAGE_TAG', defaultValue: 'latest', description: 'Docker image tag to deploy')
+        string(name: 'IMAGE_TAG', description: 'Docker image tag to deploy')
     }
     
     environment {
@@ -20,6 +20,17 @@ pipeline {
                 checkout scm
             }
         }
+        stage('Set Image Tag') {
+            steps {
+                script {
+                    env.FINAL_IMAGE_TAG = params.IMAGE_TAG?.trim()
+                        ? params.IMAGE_TAG.trim()
+                        : "1.0.${BUILD_NUMBER}"
+                    echo "Using Docker image tag: ${env.FINAL_IMAGE_TAG}"
+                }
+            }
+        }
+        
 
         stage('Compile') {
             when { expression { params.PARAM_ENV == 'dev' } }
@@ -96,7 +107,7 @@ pipeline {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
                         sh "echo ${params.IMAGE_TAG}"
-                        sh "docker build -t anub11/bankapp:${params.IMAGE_TAG} ."
+                        sh "docker build -t anub11/bankapp:${env.FINAL_IMAGE_TAG} ."
                     }
                 }
             }
@@ -105,7 +116,7 @@ pipeline {
         stage('Docker image scan') {
             when { expression { params.PARAM_ENV == 'dev' } }
             steps {
-                sh "trivy image --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-image-report.json anub11/bankapp:${params.IMAGE_TAG}"
+                sh "trivy image --exit-code 0 --severity HIGH,CRITICAL --format json -o trivy-image-report.json anub11/bankapp:${env.FINAL_IMAGE_TAG}"
             }
         }
         
@@ -114,7 +125,7 @@ pipeline {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker') {
-                        sh "docker push anub11/bankapp:${params.IMAGE_TAG}"
+                        sh "docker push anub11/bankapp:${env.FINAL_IMAGE_TAG}"
                     }
                 }
             }
@@ -123,7 +134,7 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 sh 'ls -l'   
-                sh "sed -i 's|image:.*|image: anub11/bankapp:${params.IMAGE_TAG}|' ds.yml"
+                sh "sed -i 's|image:.*|image: anub11/bankapp:${env.FINAL_IMAGE_TAG}|' ds.yml"
                 sh "echo deployed!!"
             }
         }
