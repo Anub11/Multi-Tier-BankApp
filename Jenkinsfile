@@ -141,7 +141,7 @@ pipeline {
         
         stage('Verify deployment EKS') {
             steps {
-                echo "done"
+                echo "Using Docker image tag: ${env.FINAL_IMAGE_TAG}"
             }
         }
         
