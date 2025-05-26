@@ -16,7 +16,7 @@ pipeline {
     stages {
         stage('Git checkout') {
             steps {
-                git 'https://github.com/Anub11/Multi-Tier-BankApp.git'
+                checkout scm
             }
         }
 
